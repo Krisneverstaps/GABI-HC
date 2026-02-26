@@ -1,40 +1,58 @@
 import bilby
+import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import os
+from calculations import calculate_dl as analytic
+from for_emulator import calculate_dl as emulator
 
-label = 'hubble_inference'
-outdir = 'hubble_project_results'
-if not os.path.exists(outdir): os.makedirs(outdir)
+zs_test = np.linspace(0.01, 1.0, 50)
+h0_test = 70.0
+om_test = 0.3
 
-# Generate Synthetic "Observations" (50 Galaxies)
-np.random.seed(42)
-true_h0 = 72.0  # The value we want to find
-distances = np.linspace(10, 500, 50)  # Mpc
-sigma = 1500.0  # Uncertainty in velocity (km/s)
-velocities = true_h0 * distances + np.random.normal(0, sigma, 50)
+dl_true = analytic(zs_test, h0_test, om_test)
+dl_em = emulator(zs_test, h0_test, om_test)
 
-# Model definition
-def hubble_law(d, h0):
-    return h0 * d
+frac_err = np.abs(dl_true - dl_em) / dl_true
 
-# Priors
-priors = dict()
-priors['h0'] = bilby.core.prior.Uniform(0, 150, 'h0', latex_label='$H_0$')
+print("Mean fractional error:", frac_err.mean())
+print("Max fractional error:", frac_err.max())
 
-# Likelihood
+
+# Choose backend
+USE_EMULATOR = True
+
+if USE_EMULATOR:
+    from for_emulator import calculate_dl
+else:
+    from calculations import calculate_dl
+
+data = pd.read_csv("data/gw_events.csv")
+
+zs = data["z"].values
+dl_obs = data["dl"].values
+sigmas = data["sigma"].values
+
+def model_func(z, h0, omega_m):
+    return calculate_dl(z, h0, omega_m)
+
 likelihood = bilby.core.likelihood.GaussianLikelihood(
-    x=distances, y=velocities, func=hubble_law, sigma=sigma
+    x=zs,
+    y=dl_obs,
+    func=model_func,
+    sigma=sigmas
 )
 
-# Sampler (Nested Sampling)
-# We use 'unif' as 1D problem
+priors = dict(
+    h0=bilby.core.prior.Uniform(50, 100, name="h0"),
+    omega_m=bilby.core.prior.Uniform(0.1, 0.5, name="omega_m")
+)
+
 result = bilby.run_sampler(
-    likelihood=likelihood, priors=priors, sampler='dynesty', 
-    nlive=500, sample='unif', outdir=outdir, label=label, clean=True
+    likelihood=likelihood,
+    priors=priors,
+    sampler="dynesty",
+    nlive=500,
+    outdir="results",
+    label="h0_inference"
 )
-
 
 result.plot_corner()
-print(f"Inferred H0: {result.posterior['h0'].mean():.2f}")
-plt.show()
