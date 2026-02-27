@@ -4,7 +4,7 @@ import numpy as np
 from calculations import calculate_dl as analytic
 from for_emulator import calculate_dl as emulator
 
-zs_test = np.linspace(0.01, 1.0, 50)
+zs_test = np.linspace(0.01, 2.0, 50)
 h0_test = 70.0
 om_test = 0.3
 
@@ -50,7 +50,7 @@ result = bilby.run_sampler(
     likelihood=likelihood,
     priors=priors,
     sampler="dynesty",
-    nlive=500,
+    nlive=2000,
     outdir="results",
     label="h0_inference"
 )

@@ -7,7 +7,7 @@ np.random.seed(42)
 true_h0 = 70.0
 true_om = 0.3
 
-N = 100
+N = 500
 zs = np.random.uniform(0.01, 1.0, N)
 
 dl_true = calculate_dl(zs, true_h0, true_om)
